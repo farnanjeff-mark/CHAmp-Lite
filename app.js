@@ -42,4 +42,17 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function(){ toastEl.style.display = 'none'; }, 2600);
   };
+
+  // Pop-up box used by the forms (same look as CHAmp's pop-ups; the style rules come with cows.js).
+  var modalEl = null;
+  Lite.closeModal = function(){ if(modalEl){ modalEl.remove(); modalEl = null; } };
+  Lite.openModal = function(html){
+    Lite.closeModal();
+    modalEl = document.createElement('div');
+    modalEl.className = 'modal-backdrop';
+    modalEl.innerHTML = '<div class="modal">' + html + '</div>';
+    modalEl.addEventListener('click', function(e){ if(e.target === modalEl) Lite.closeModal(); });
+    document.body.appendChild(modalEl);
+    return modalEl.querySelector('.modal');
+  };
 })();

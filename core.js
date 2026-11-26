@@ -48,7 +48,7 @@
     app_settings:    '/app_settings?select=*'
   };
 
-  var Lite = { data: {}, TABLES: TABLES, version: 3, liveAt: {} };
+  var Lite = { data: {}, TABLES: TABLES, version: 4, liveAt: {} };
 
   // ---------- small helpers ----------
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -125,10 +125,54 @@
     emit('lite:queue', { count: list.length });
     return entry.localId;
   };
+  Lite.removePending = function(localId){ removePending(localId); };
   function removePending(localId){
     var list = Lite.getPending().filter(function(w){ return w.localId !== localId; });
     savePending(list);
     emit('lite:queue', { count: list.length });
+  }
+
+
+  // After a held save goes through, bring the in-memory lists up to date the same way CHAmp does:
+  // swap the temporary record for the real one, clear the "not synced yet" marks, apply held deletes.
+  var COW_FIELD_FLAGS = {
+    calved: ['_pendingCalvedSync','data-pending-calved-num'], tag_needed: ['_pendingTagSync','data-pending-tag-num'],
+    needs_entry: ['_pendingFlagSync','data-pending-flag-num'], preg_bt: ['_pendingPregBtSync','data-pending-pregbt-num'],
+    sell: ['_pendingSellSync','data-pending-sell-num'], in_heat: ['_pendingHeatSync','data-pending-heat-num'],
+    status: ['_pendingStatusSync','data-pending-status-num'], lot: ['_pendingLotSync','data-pending-lot-num'],
+    owner: ['_pendingOwnerSync','data-pending-owner-num'], cow_group: ['_pendingGroupSync','data-pending-group-num'],
+    herd_season: ['_pendingSeasonSync','data-pending-season-num'], reg_number: ['_pendingRegSync','data-pending-reg-num']
+  };
+  var DELETE_TABLES = ['calf_treatments','calf_weights','treatments','weights','general_notes','breeding_records','calvings'];
+  function applySynced(entry, result){
+    var row = result && result[0] ? result[0] : null;
+    var D = Lite.data, list, idx, touched = {};
+    function arr(name){ return D[name] || (D[name] = []); }
+    if(entry.kind === 'insert' && entry.table === 'cows'){
+      list = arr('cows'); idx = list.findIndex(function(c){ return c.number === entry.cowNumber; });
+      if(idx !== -1){ list[idx] = Object.assign({}, list[idx], row || {}); delete list[idx]._pendingSync; touched.cows = 1; }
+    } else if(entry.kind === 'insert'){
+      list = arr(entry.table); idx = list.findIndex(function(r){ return r.id === entry.tempId; });
+      if(idx !== -1 && row){ list[idx] = row; touched[entry.table] = 1; }
+    } else if(entry.kind === 'update' && entry.table === 'cows'){
+      list = arr('cows'); idx = list.findIndex(function(c){ return c.number === entry.cowNumber; });
+      var meta = COW_FIELD_FLAGS[entry.field];
+      if(idx !== -1){ list[idx] = Object.assign({}, list[idx], row || {}); if(meta) delete list[idx][meta[0]]; touched.cows = 1; }
+      if(meta){ try{ document.querySelectorAll('[' + meta[1] + '="' + CSS.escape(entry.cowNumber) + '"]').forEach(function(el){ el.style.display = 'none'; }); }catch(e){} }
+    } else if(entry.kind === 'update' && entry.table === 'breeding_records'){
+      list = arr('breeding_records'); idx = list.findIndex(function(b){ return b.id === entry.recordId; });
+      if(idx !== -1){
+        list[idx] = Object.assign({}, list[idx], row || {}); delete list[idx]._pendingSync; touched.breeding_records = 1;
+        var cows = arr('cows'), ci = cows.findIndex(function(c){ return c.number === list[idx].cow_number; });
+        if(ci !== -1){ delete cows[ci]._pendingOpenSync; touched.cows = 1; }
+      }
+    } else if(entry.kind === 'update'){
+      list = arr(entry.table); idx = list.findIndex(function(r){ return r.id === entry.recordId; });
+      if(idx !== -1){ list[idx] = Object.assign({}, list[idx], row || {}); delete list[idx]._pendingSync; touched[entry.table] = 1; }
+    } else if(entry.kind === 'delete' && DELETE_TABLES.indexOf(entry.table) !== -1){
+      D[entry.table] = arr(entry.table).filter(function(r){ return r.id !== entry.recordId; }); touched[entry.table] = 1;
+    }
+    Object.keys(touched).forEach(function(n){ Lite.saveCopy(n); });
   }
 
   // Send held saves in order. If the signal is still gone, stop and keep the rest.
@@ -147,6 +191,7 @@
           var opts = { method: entry.method, headers: Object.assign({}, HEADERS, { 'Prefer': 'return=representation' }) };
           if(entry.method !== 'DELETE') opts.body = JSON.stringify(entry.body);
           var result = await Lite.api(entry.path, opts);
+          try{ applySynced(entry, result); }catch(e){ console.error('Could not update the list after a held save', e); }
           removePending(entry.localId);
           sent++;
           emit('lite:synced', { entry: entry, result: result });
