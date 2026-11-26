@@ -159,7 +159,7 @@
         countTile('flagged', 'Flagged') + countTile('open', 'Open') + countTile('sell', 'Sell') + iconTile('fieldCount', '&#9989;', 'Field Cnt') +
       '</div>' +
       '<div style="' + ROW + '">' +
-        iconTile('tally', '&#128290;', 'Tally') + iconTile('bulk', '&#128295;', 'Bulk') + countTile('inHeat', 'In Heat') +
+        iconTile('tally', '&#128290;', 'Tally') + countTile('inHeat', 'In Heat') +
       '</div>' +
       '<div id="liteStatus" style="margin-top:14px;text-align:center;font-size:12px;color:#0C5A8E;min-height:16px;"></div>' +
     '</div>';
@@ -168,7 +168,7 @@
   var TILE_NOTES = {
     calved: 'The Calved list', dueSoon: 'The Due Soon list', calvedSince: 'Calved Since', activity: 'Today\'s Activity',
     flagged: 'The Flagged list', open: 'The Open list', sell: 'The Sell list', fieldCount: 'Field Count',
-    tally: 'Herd Tally', bulk: 'Bulk Entry', inHeat: 'The In Heat list'
+    tally: 'Herd Tally', inHeat: 'The In Heat list'
   };
 
   function ageLabel(iso){
@@ -240,7 +240,11 @@
       if(e.target.closest('#liteAddCow')){ Lite.toast('Add Cow opens in a later step'); return; }
       if(e.target.closest('#liteProfile')){ Lite.show('cattle'); return; }
       var tile = e.target.closest('.lite-tile');
-      if(tile){ Lite.toast((TILE_NOTES[tile.getAttribute('data-tile')] || 'That screen') + ' opens in a later step'); }
+      if(tile){
+        var kind = tile.getAttribute('data-tile');
+        if(Lite.reports && ['calved', 'dueSoon', 'calvedSince', 'flagged', 'open', 'sell', 'inHeat'].indexOf(kind) !== -1){ Lite.reports.open(kind); return; }
+        Lite.toast((TILE_NOTES[kind] || 'That screen') + ' opens in a later step');
+      }
     });
 
     // Instant: saved copy first. Then fresh cows, then the rest, so the pad is useful right away.
@@ -256,5 +260,7 @@
 
     var onQueue = function(){ if(alive()) updateStatus(); else document.removeEventListener('lite:queue', onQueue); };
     document.addEventListener('lite:queue', onQueue);
+    var onDate = function(){ if(alive()){ have.home_stats_settings = true; updateCounts(); } else document.removeEventListener('lite:report-date', onDate); };
+    document.addEventListener('lite:report-date', onDate);
   });
 })();
