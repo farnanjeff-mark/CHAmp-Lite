@@ -140,7 +140,10 @@
     });
     return '' +
     '<div id="liteHome" style="font-family:Arial,sans-serif;">' +
-      '<div id="liteProfile" role="button" style="' + tileBox + 'min-height:62px;font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:18px;">Profile</div>' +
+      '<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px;margin-bottom:18px;">' +
+        '<div id="liteProfile" role="button" style="' + tileBox + 'min-height:62px;font-size:14px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">Profile</div>' +
+        countTile('activity', 'Activity') + iconTile('tally', '&#128290;', 'Tally') +
+      '</div>' +
       '<div style="max-width:280px;margin:0 auto 14px;padding:16px 16px 8px;background:' + BLUE + ';border:2px solid #fff;border-radius:20px;">' +
         '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:8px;">' +
           '<div id="liteDisplay" style="grid-column:span 2;background:#fff;border:2px solid #2E88C4;border-radius:10px;padding:0 4px;height:52px;box-sizing:border-box;font-size:30px;font-weight:700;color:#0C5A8E;text-align:center;display:flex;align-items:center;justify-content:center;">&nbsp;</div>' +
@@ -153,13 +156,10 @@
         '</div>' +
       '</div>' +
       '<div style="' + ROW + 'margin-bottom:6px;">' +
-        countTile('calved', 'Calved') + countTile('dueSoon', 'Due Soon') + countTile('calvedSince', 'Calved Since') + countTile('activity', 'Activity') +
+        countTile('calved', 'Calved') + countTile('dueSoon', 'Due Soon') + countTile('calvedSince', 'Calved Since') + countTile('flagged', 'Flagged') +
       '</div>' +
       '<div style="' + ROW + 'margin-bottom:6px;">' +
-        countTile('flagged', 'Flagged') + countTile('open', 'Open') + countTile('sell', 'Sell') + iconTile('fieldCount', '&#9989;', 'Field Cnt') +
-      '</div>' +
-      '<div style="' + ROW + '">' +
-        iconTile('tally', '&#128290;', 'Tally') + countTile('inHeat', 'In Heat') +
+        countTile('open', 'Open') + countTile('sell', 'Sell') + iconTile('fieldCount', '&#9989;', 'Field Cnt') + countTile('inHeat', 'In Heat') +
       '</div>' +
       '<div id="liteStatus" style="margin-top:14px;text-align:center;font-size:12px;color:#0C5A8E;min-height:16px;"></div>' +
     '</div>';
