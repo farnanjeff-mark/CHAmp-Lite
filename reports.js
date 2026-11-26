@@ -75,7 +75,7 @@
           : daysUntil;
         return `<tr style="background:${i%2===0?'#fff':'#F7F2E6'};"><td style="padding:8px;">#${escapeHtml(e.cow.number)}</td><td style="padding:8px;">${fmtDateShort(e.breeding.expected_due_date)}</td><td style="padding:8px;">${daysUntilHtml}</td><td style="padding:8px;">${escapeHtml(bredToText(e.breeding))}</td><td style="padding:8px;">${escapeHtml(e.breeding.pregnancy_method||'')}</td></tr>`;
       }).join('');
-      reportCardModal('Due Soon (Next 14 Days)', entries.map(e=>e.cow), ['Cow #','Due Date','Days Until','Bred To','Method'], rows, dueSoonModal, 'Active, bred D.cows due to calve within 14 days, based on each cow\'s expected due date.');
+      reportCardModal('Due Soon (Next 14 Days)', entries.map(e=>e.cow), ['Cow #','Due Date','Days Until','Bred To','Method'], rows, dueSoonModal, 'Active, bred cows due to calve within 14 days, based on each cow\'s expected due date.');
     }
     function calvedSinceEntries(){
       if(!hss() || !hss().calved_since_date) return [];
@@ -118,10 +118,10 @@
           <span>Calved Since</span>
           <button class="modal-top-close-btn" style="background:none;border:none;font-size:26px;color:#a08f6b;cursor:pointer;line-height:1;padding:0 2px;">&times;</button>
         </div>
-        <div style="font-family:Arial,sans-serif;font-size:12px;color:#8a8163;margin-bottom:10px;">Active D.cows that have calved on or after the date you set below.</div>
+        <div style="font-family:Arial,sans-serif;font-size:12px;color:#8a8163;margin-bottom:10px;">Active cows that have calved on or after the date you set below.</div>
         <div class="field" style="display:flex;gap:8px;align-items:flex-end;">
           <div style="flex:1;">
-            <label>Count D.calvings since</label>
+            <label>Count calvings since</label>
             <input type="date" id="calvedSinceDateInput" value="${currentDate}"/>
           </div>
           <button class="btn btn-barn" id="calvedSinceUpdateBtn" style="padding:12px 18px;white-space:nowrap;flex-shrink:0;">Update</button>
@@ -147,7 +147,7 @@
         countEl.textContent = `${entries.length} cow${entries.length!==1?'s':''} matched`;
         if(entries.length === 0){
           tableEl.innerHTML = '';
-          resultsEl.innerHTML = '<p class="empty">No D.calvings recorded since that date.</p>';
+          resultsEl.innerHTML = '<p class="empty">No calvings recorded since that date.</p>';
         } else {
           const rows = entries.map((e,i)=> `<tr style="background:${i%2===0?'#fff':'#F7F2E6'};"><td style="padding:8px;">${fmtDateShort(e.calving.calving_date)}</td><td style="padding:8px;">#${escapeHtml(e.cow.number)}</td><td style="padding:8px;">${escapeHtml(e.cow.owner||'')}</td></tr>`).join('');
           tableEl.innerHTML = `
@@ -228,7 +228,7 @@
       addReportOutputRow(modal, 'Open Cows', '#openCowsTable');
     }
     function heatReportModal(){
-      // Only D.cows marked In Heat right now. Logging a breeding unticks the box, so bred D.cows drop off.
+      // Only cows marked In Heat right now. Logging a breeding unticks the box, so bred cows drop off.
       const latestTick = {};
       D.heat_log.forEach(h=>{
         const cur = latestTick[h.cow_number];
@@ -260,7 +260,7 @@
       `);
       const tableEl = modal.querySelector('#heatReportTable');
       if(!list.length){
-        tableEl.innerHTML = '<p class="empty">No D.cows are marked In Heat.</p>';
+        tableEl.innerHTML = '<p class="empty">No cows are marked In Heat.</p>';
       }else{
         tableEl.innerHTML = `
           <table style="width:auto;min-width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;">
@@ -372,7 +372,7 @@
     function printListModal(cowList, title, action){
       action = action || 'print';
       const count = cowList.length;
-      if(count === 0){ showToast(`No D.cows to ${action}`); return; }
+      if(count === 0){ showToast(`No cows to ${action}`); return; }
       const actionLabel = action === 'export' ? 'Export' : 'Print';
       const modal = openModal(`
         <div class="modal-title">${title || (actionLabel + ' This List')}</div>
