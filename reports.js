@@ -1,15 +1,27 @@
-/* CHAmp-Lite, part 6: the report lists behind the home tiles (Calved, Due Soon, Calved Since, Flagged, Open, Sell, In Heat) and Print.
+/* CHAmp-Lite, part 6: the report lists behind the home tiles (Today's Activity, Calved, Due Soon, Calved Since, Flagged, Open, Sell, In Heat) and Print.
  * The lists are CHAmp's own code, copied over. Tap a cow and you go to her profile; Back brings the list back.
  * No Export, no Text, no Show Cards pop-ups: Lite only prints. */
 (function(){
   'use strict';
   var D = Lite.data;
   var HEADERS = Lite.HEADERS;
-  ['cows','breeding_records','calvings','treatments','general_notes','weights','heat_log','home_stats_settings'].forEach(function(n){ if(!D[n]) D[n] = []; });
+  ['cows','breeding_records','calvings','treatments','general_notes','weights','heat_log','home_stats_settings','calf_treatments','calf_weights','app_settings'].forEach(function(n){ if(!D[n]) D[n] = []; });
   function showToast(m){ Lite.toast(m); }
   function openModal(html){ return Lite.openModal(html); }
   function closeModal(){ Lite.closeModal(); }
   function escapeHtml(s){ return Lite.escapeHtml(s); }
+  function daysAgo(iso){
+    var d = new Date(iso+'T00:00:00'); var now = new Date(); now.setHours(0,0,0,0);
+    return Math.round((now-d)/86400000);
+  }
+  // "Hide LA breeding activity" setting (on unless turned off), same rule as the Activity count on the home screen
+  function breedingHiddenFor(num){
+    var hide = true;
+    D.app_settings.forEach(function(r){ if(r.key === 'hide_la_breeding_activity') hide = (r.value !== 'false'); });
+    if(!hide) return false;
+    var cow = D.cows.find(function(c){ return c.number === num; });
+    return !!(cow && cow.owner === 'LA');
+  }
   function hss(){ return D.home_stats_settings[0] || null; }
   function setHss(row){ D.home_stats_settings = [row]; Lite.saveCopy('home_stats_settings'); document.dispatchEvent(new CustomEvent('lite:report-date')); }
   function closeAllModals(){ while(document.querySelector('.modal-backdrop')) Lite.closeModal(); }
@@ -34,11 +46,132 @@
     row.querySelector('[data-report-out]').addEventListener('click', function(){
       var data = reportDataFromTable(modal.querySelector(tableContainerSel));
       if(!data){ showToast('Nothing in this report yet'); return; }
-      printReportData(title, data);
+      printReportData(typeof title === 'function' ? title() : title, data);
     });
   }
 
   // ---- CHAmp's code, copied ----
+    function todaysActivityModal(){
+      const modal = openModal(`
+        <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>Today's Activity</span>
+          <button class="modal-top-close-btn" style="background:none;border:none;font-size:26px;color:#a08f6b;cursor:pointer;line-height:1;padding:0 2px;">&times;</button>
+        </div>
+        <div style="font-family:Arial,sans-serif;font-size:12px;color:#8a8163;margin-bottom:10px;">Every treatment, weight, note, breeding, and calving entry (cow and calf) for active cows, logged within the time frame you pick below.</div>
+        <div class="field">
+          <label>Time Frame</label>
+          <select id="todaysActivityTimeframe">
+            <option value="0" selected>Today</option>
+            <option value="7">1 Week</option>
+            <option value="30">1 Month</option>
+          </select>
+        </div>
+        <div id="todaysActivityCount" style="font-family:Arial,sans-serif;font-size:13px;color:#6b6350;margin-bottom:10px;"></div>
+        <div id="todaysActivityTable" style="overflow-x:auto;margin-bottom:14px;"></div>
+        <div id="todaysActivityResults" style="margin-bottom:14px;"></div>
+        <div class="modal-actions">
+          <button class="btn btn-barn btn-full" id="closeTodaysActivityBtn">Close</button>
+        </div>
+      `);
+      function currentEntries(){
+        const days = parseInt(modal.querySelector('#todaysActivityTimeframe').value, 10);
+        const entries = [];
+        function cowIsActive(num){
+          const cow = D.cows.find(c=>c.number===num);
+          return cow ? isActiveStatus(cow) : true;
+        }
+        D.treatments.forEach(t=>{
+          if(daysAgo(t.date) <= days && daysAgo(t.date) >= 0 && cowIsActive(t.cow_number)){
+            const desc = t.medicine ? `${t.medicine}${t.reason ? ' / '+t.reason : ''}` : (t.notes||'note');
+            entries.push({ date: t.date, num: t.cow_number, type: 'Med', details: desc });
+          }
+        });
+        D.calvings.forEach(c=>{
+          if(daysAgo(c.calving_date) <= days && daysAgo(c.calving_date) >= 0 && cowIsActive(c.cow_number)){
+            const parts = [`${calfSexLabel(c.calf_sex)} calf`];
+            if(c.birth_weight!=null) parts.push(c.birth_weight+' lbs');
+            entries.push({ date: c.calving_date, num: c.cow_number, type: 'Calving', details: parts.join(', ') });
+          }
+        });
+        D.general_notes.forEach(n=>{
+          if(daysAgo(n.note_date) <= days && daysAgo(n.note_date) >= 0 && cowIsActive(n.cow_number)){
+            entries.push({ date: n.note_date, num: n.cow_number, type: 'Note', details: n.note||'' });
+          }
+        });
+        D.weights.forEach(w=>{
+          if(daysAgo(w.weigh_date) <= days && daysAgo(w.weigh_date) >= 0 && cowIsActive(w.cow_number)){
+            entries.push({ date: w.weigh_date, num: w.cow_number, type: 'Weight', details: w.weight!=null ? w.weight+' lbs' : '' });
+          }
+        });
+        D.breeding_records.forEach(b=>{
+          if(daysAgo(b.breed_date) <= days && daysAgo(b.breed_date) >= 0 && cowIsActive(b.cow_number) && !breedingHiddenFor(b.cow_number)){
+            entries.push({ date: b.breed_date, num: b.cow_number, type: 'Breeding', details: b.bred_to ? 'Bred to: '+b.bred_to : '' });
+          }
+        });
+        D.calf_treatments.forEach(t=>{
+          if(daysAgo(t.date) <= days && daysAgo(t.date) >= 0){
+            const cv = D.calvings.find(c=>c.id===t.calving_id);
+            if(!cv || !cowIsActive(cv.cow_number)) return;
+            const desc = t.medicine ? `${t.medicine}${t.reason ? ' / '+t.reason : ''}` : (t.notes||'note');
+            entries.push({ date: t.date, num: cv.cow_number, type: 'Calf Med', details: desc });
+          }
+        });
+        D.calf_weights.forEach(w=>{
+          if(daysAgo(w.weigh_date) <= days && daysAgo(w.weigh_date) >= 0){
+            const cv = D.calvings.find(c=>c.id===w.calving_id);
+            if(!cv || !cowIsActive(cv.cow_number)) return;
+            entries.push({ date: w.weigh_date, num: cv.cow_number, type: 'Calf Weight', details: w.weight!=null ? w.weight+' lbs' : '' });
+          }
+        });
+        entries.sort((a,b)=> b.date.localeCompare(a.date));
+        return entries;
+      }
+      function refresh(){
+        const entries = currentEntries();
+        const countEl = modal.querySelector('#todaysActivityCount');
+        const tableEl = modal.querySelector('#todaysActivityTable');
+        const resultsEl = modal.querySelector('#todaysActivityResults');
+        countEl.textContent = `${entries.length} entr${entries.length!==1?'ies':'y'} matched`;
+        if(entries.length === 0){
+          tableEl.innerHTML = '';
+          resultsEl.innerHTML = '<p class="empty">No activity in this timeframe.</p>';
+        } else {
+          tableEl.innerHTML = `
+            <table style="width:auto;min-width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;white-space:nowrap;">
+              <thead><tr style="background:#EFE8D8;"><th style="text-align:left;padding:8px;">Date</th><th style="text-align:left;padding:8px;">Cow #</th><th style="text-align:left;padding:8px;">Type</th><th style="text-align:left;padding:8px;">Details</th></tr></thead>
+              <tbody>
+                ${entries.map((e,i)=>`
+                  <tr style="background:${i%2===0?'#fff':'#F7F2E6'};">
+                    <td style="padding:8px;">${fmtDateShort(e.date)}</td>
+                    <td style="padding:8px;">#${escapeHtml(e.num)}</td>
+                    <td style="padding:8px;">${escapeHtml(e.type)}</td>
+                    <td style="padding:8px;white-space:normal;">${escapeHtml(e.details)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          const seen = new Set();
+          const cowList = [];
+          entries.forEach(e=>{
+            if(seen.has(e.num)) return;
+            seen.add(e.num);
+            const cow = D.cows.find(cw=>cw.number===e.num);
+            if(cow) cowList.push(cow);
+          });
+          resultsEl.innerHTML = '';
+          wireTableRowsToCards(tableEl, todaysActivityModal, '← Back to Report');
+        }
+      }
+      refresh();
+      modal.querySelector('#todaysActivityTimeframe').addEventListener('change', refresh);
+      modal.querySelector('#closeTodaysActivityBtn').addEventListener('click', closeModal);
+      modal.querySelector('.modal-top-close-btn').addEventListener('click', closeModal);
+      addReportOutputRow(modal, ()=>{
+        const sel = modal.querySelector('#todaysActivityTimeframe');
+        return "Today's Activity — " + sel.options[sel.selectedIndex].text;
+      }, '#todaysActivityTable');
+    }
     function bredToText(b){
       if(!b) return '';
       if(b.pregnancy_method === 'BB') return b.natural_sire ? 'BB \u2014 ' + b.natural_sire : 'BB';
@@ -504,8 +637,8 @@
     }
 
   // ---- what the home tiles and cow list call ----
-  var NEED = ['cows','breeding_records','calvings','treatments','general_notes','weights','heat_log','home_stats_settings'];
-  var OPENERS = { calved: calvedReportModal, dueSoon: dueSoonModal, calvedSince: calvedSinceModal, open: openCowsReportModal, inHeat: heatReportModal };
+  var NEED = ['cows','breeding_records','calvings','treatments','general_notes','weights','heat_log','home_stats_settings','calf_treatments','calf_weights','app_settings'];
+  var OPENERS = { calved: calvedReportModal, dueSoon: dueSoonModal, calvedSince: calvedSinceModal, open: openCowsReportModal, inHeat: heatReportModal, activity: todaysActivityModal };
   Lite.reports = {
     open: function(kind){
       if(kind === 'flagged'){ Lite.show('cattle', { filter: 'flag:1' }); return; }

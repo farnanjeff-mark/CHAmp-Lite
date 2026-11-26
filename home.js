@@ -200,7 +200,7 @@
     function updateCounts(){
       if(!alive()) return;
       var c = Lite.homeCounts();
-      ['calved', 'dueSoon', 'calvedSince', 'activity', 'flagged', 'open', 'sell', 'inHeat'].forEach(function(key){
+      ['calved', 'dueSoon', 'calvedSince', 'activity', 'flagged', 'open', 'sell', 'inHeat', 'activity'].forEach(function(key){
         var el = document.getElementById('n-' + key);
         if(el) el.textContent = ready(key) ? cap(c[key]) : '–';
       });
@@ -242,7 +242,7 @@
       var tile = e.target.closest('.lite-tile');
       if(tile){
         var kind = tile.getAttribute('data-tile');
-        if(Lite.reports && ['calved', 'dueSoon', 'calvedSince', 'flagged', 'open', 'sell', 'inHeat'].indexOf(kind) !== -1){ Lite.reports.open(kind); return; }
+        if(Lite.reports && ['calved', 'dueSoon', 'calvedSince', 'flagged', 'open', 'sell', 'inHeat', 'activity'].indexOf(kind) !== -1){ Lite.reports.open(kind); return; }
         Lite.toast((TILE_NOTES[kind] || 'That screen') + ' opens in a later step');
       }
     });
