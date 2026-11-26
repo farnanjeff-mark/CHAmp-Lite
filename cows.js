@@ -914,7 +914,7 @@
               ${r.notes ? `<div class="record-notes">${escapeHtml(r.notes)}</div>` : ''}
               ${r.promoted_to_cow_number
                 ? `<div style="margin-top:8px;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#3C9142;">✓ ${r.calf_outcome === 'bull' ? 'Kept as bull' : 'Promoted to'} #${escapeHtml(r.promoted_to_cow_number)}</div>`
-                : `${outcomeLabel ? `<div style="margin-top:8px;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#6F2E24;">${outcomeLabel}</div>` : ''}`}
+                : `${outcomeLabel ? `<div style="margin-top:8px;font-family:Arial,sans-serif;font-size:12px;font-weight:700;color:#6F2E24;">${outcomeLabel}</div>` : ''}${r._pendingSync ? '' : `<button class="btn btn-nav-tool btn-sm calf-record-btn" data-id="${escapeHtml(r.id)}" style="margin-top:8px;">🐄 Calf Record</button>`}`}
             </div>`;
           }).join('');
   
@@ -1190,13 +1190,14 @@
   }
   // + Med / + Weight / + Note (and the quick-add bar) open CHAmp's forms; the rest come in the next steps
   Lite.toggleInHeat = function(num, checked){ return toggleInHeat(num, checked); };
-  function addRecord(type, num){
+  function addRecord(type, num, calvingId){
+    if(type === 'calf'){ if(Lite.records && Lite.records.openCalf) Lite.records.openCalf(calvingId); else showToast('That opens in the next step'); return; }
     var k = Lite.records && Lite.records.kinds && Lite.records.kinds[type];
     if(k) k.add(num); else showToast('That opens in the next step');
   }
   function wireProfileQuickAddButtons(container){
     container.querySelectorAll('.profile-quick-add-btn').forEach(function(btn){
-      btn.addEventListener('click', function(e){ e.stopPropagation(); addRecord(btn.dataset.type, btn.dataset.num); });
+      btn.addEventListener('click', function(e){ e.stopPropagation(); addRecord(btn.dataset.type, btn.dataset.num, btn.dataset.calvingId); });
     });
   }
   document.addEventListener('lite:synced', function(){ if(Lite.redraw) Lite.redraw(); });
@@ -1277,7 +1278,9 @@
     var view = document.getElementById('profileView');
     view.addEventListener('click', async function(e){
       var tileBtn = e.target.closest('.profile-tile-btn button[data-type]');
-      if(tileBtn){ addRecord(tileBtn.dataset.type, currentProfileCow); return; }
+      if(tileBtn){ addRecord(tileBtn.dataset.type, currentProfileCow, tileBtn.dataset.calvingId); return; }
+      var calfBtn = e.target.closest('.calf-record-btn[data-id]');
+      if(calfBtn){ addRecord('calf', currentProfileCow, calfBtn.dataset.id); return; }
       var ed = e.target.closest('.record-edit[data-kind]'), del = e.target.closest('.record-del[data-kind]');
       if(ed || del){
         var b = ed || del, k = Lite.records && Lite.records.kinds && Lite.records.kinds[b.dataset.kind];

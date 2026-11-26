@@ -44,15 +44,16 @@
   };
 
   // Pop-up box used by the forms (same look as CHAmp's pop-ups; the style rules come with cows.js).
-  var modalEl = null;
-  Lite.closeModal = function(){ if(modalEl){ modalEl.remove(); modalEl = null; } };
+  // Pop-ups stack like CHAmp's: a form opened from the Calf Record sits on top of it, and closing it shows the Calf Record again.
+  var modalStack = [];
+  Lite.closeModal = function(){ var top = modalStack.pop(); if(top) top.remove(); };
   Lite.openModal = function(html){
-    Lite.closeModal();
-    modalEl = document.createElement('div');
-    modalEl.className = 'modal-backdrop';
-    modalEl.innerHTML = '<div class="modal">' + html + '</div>';
-    modalEl.addEventListener('click', function(e){ if(e.target === modalEl) Lite.closeModal(); });
-    document.body.appendChild(modalEl);
-    return modalEl.querySelector('.modal');
+    var backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop';
+    backdrop.innerHTML = '<div class="modal">' + html + '</div>';
+    backdrop.addEventListener('click', function(e){ if(e.target === backdrop && modalStack[modalStack.length - 1] === backdrop) Lite.closeModal(); });
+    document.body.appendChild(backdrop);
+    modalStack.push(backdrop);
+    return backdrop.querySelector('.modal');
   };
 })();
