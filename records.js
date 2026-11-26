@@ -1075,11 +1075,11 @@
         ${calvingRecord.promoted_to_cow_number
           ? `<div style="padding:12px 14px;background:var(--paper-raised);border:2px solid var(--ink);border-radius:10px;font-weight:700;color:#3C9142;">✓ ${calvingRecord.calf_outcome === 'bull' ? 'Kept as bull' : 'Promoted to'} #${escapeHtml(calvingRecord.promoted_to_cow_number)}</div>`
           : `<label style="display:flex;align-items:center;gap:10px;background:#E6F1FB;border:2px solid #0274BA;border-radius:10px;padding:10px 12px;margin-bottom:10px;cursor:pointer;">
-               <input type="checkbox" id="calfToSellCheck" ${calvingRecord.to_sell ? 'checked' : ''} style="width:20px;height:20px;accent-color:#6F2E24;"/>
+               <input type="checkbox" id="calfToSellCheck" ${calvingRecord.to_sell ? 'checked' : ''} style="width:20px;height:20px;accent-color:#3F1D4D;"/>
                <span style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:#0C447C;">Mark to sell</span>
              </label>
              <label style="display:flex;align-items:center;gap:10px;background:#E6F1FB;border:2px solid #0274BA;border-radius:10px;padding:10px 12px;margin-bottom:10px;cursor:pointer;">
-               <input type="checkbox" id="calfHeldOverCheck" ${calvingRecord.held_over ? 'checked' : ''} style="width:20px;height:20px;accent-color:#6F2E24;"/>
+               <input type="checkbox" id="calfHeldOverCheck" ${calvingRecord.held_over ? 'checked' : ''} style="width:20px;height:20px;accent-color:#3F1D4D;"/>
                <span style="font-family:Arial,sans-serif;font-size:14px;font-weight:700;color:#0C447C;">Held over</span>
              </label>
              <div class="field">
