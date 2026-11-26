@@ -1189,6 +1189,7 @@
     });
   }
   // + Med / + Weight / + Note (and the quick-add bar) open CHAmp's forms; the rest come in the next steps
+  Lite.addStyles = addStyles;
   Lite.toggleInHeat = function(num, checked){ return toggleInHeat(num, checked); };
   function addRecord(type, num, calvingId){
     if(type === 'calf'){ if(Lite.records && Lite.records.openCalf) Lite.records.openCalf(calvingId); else showToast('That opens in the next step'); return; }
