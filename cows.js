@@ -1293,7 +1293,8 @@
         if(Lite.redraw) Lite.redraw();
         return;
       }
-      if(e.target.closest('.profile-info-row') || e.target.closest('#profileStatusBadge')){ showToast('Changing this opens in the next step'); return; }
+      var ban = e.target.closest('[data-edit]');
+      if(ban){ if(Lite.records && Lite.records.editBanner) Lite.records.editBanner(ban.dataset.edit, currentProfileCow); else showToast('Changing this opens in the next step'); return; }
       if(e.target.closest('#profilePrintBtn')){ showToast('Printing opens in a later step'); return; }
       if(e.target.closest('#profileAddPhotoBtn') || e.target.closest('#profileRemoveCowBtn')){ showToast('This opens in the next step'); }
     });

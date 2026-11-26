@@ -1,24 +1,25 @@
-/* CHAmp-Lite, part 5: adding, editing and deleting records (version 3: meds, weights, notes, breeding, calving, calf record).
+/* CHAmp-Lite, part 5: adding, editing and deleting records (version 4: meds, weights, notes, breeding, calving, calf record, banner changes).
  * The forms and saves are CHAmp's own code, copied over, so they save exactly what CHAmp saves.
  * Breeding, calving, banner changes, photos and Remove Cow come in later versions of this part. */
 (function(){
   'use strict';
   var D = Lite.data;
   var HEADERS = Lite.HEADERS, api = Lite.api, queuePendingWrite = Lite.queueWrite, makeLocalId = Lite.makeLocalId;
-  var currentCow = null, currentWeightsCow = null, currentNotesCow = null, currentBreedingCow = null, currentCalvingCow = null;
+  var currentCow = null, currentWeightsCow = null, currentNotesCow = null, currentBreedingCow = null, currentCalvingCow = null, currentBannerCow = null;
   function showToast(m){ Lite.toast(m); }
   function openModal(html){ return Lite.openModal(html); }
   function closeModal(){ Lite.closeModal(); }
   function getPendingWrites(){ return Lite.getPending(); }
   function removePendingWrite(id){ Lite.removePending(id); }
-  ['treatments','weights','general_notes','medicines','med_reasons','breeding_records','bulls','cows','calvings','calf_treatments','calf_weights'].forEach(function(n){ if(!D[n]) D[n] = []; });
-  function saveOfflineCache(){ ['treatments','weights','general_notes','medicines','med_reasons','breeding_records','bulls','calvings','calf_treatments','calf_weights','cows'].forEach(function(n){ Lite.saveCopy(n); }); redraw(); }
+  ['treatments','weights','general_notes','medicines','med_reasons','breeding_records','bulls','cows','calvings','calf_treatments','calf_weights','locations','owners','cow_groups'].forEach(function(n){ if(!D[n]) D[n] = []; });
+  function saveOfflineCache(){ ['treatments','weights','general_notes','medicines','med_reasons','breeding_records','bulls','calvings','calf_treatments','calf_weights','cows','locations','owners','cow_groups'].forEach(function(n){ Lite.saveCopy(n); }); redraw(); }
   // Whatever screen is showing redraws itself (the list, the cards, or the profile).
   var redrawTimer = null;
   function redraw(){ if(redrawTimer) return; redrawTimer = setTimeout(function(){ redrawTimer = null; if(Lite.redraw) Lite.redraw(); }, 0); }
   function renderDetail(){ redraw(); } function renderList(){ redraw(); } function renderWeightsDetail(){ redraw(); } function renderWeightsList(){ redraw(); }
   function renderNotesDetail(){ redraw(); } function renderNotesList(){ redraw(); } function renderProfileList(){ redraw(); } function renderBreedingDetail(){ redraw(); } function renderBreedingList(){ redraw(); }
   function renderCalvingDetail(){ redraw(); } function renderCalvingList(){ redraw(); }
+  function getActiveCowNumber(){ return currentBannerCow; } function refreshOpenCowHeaders(){}
   function updateCalvedBadge(){} function updateOpenBadge(){} function updatePregBtBadge(){} function updateSellBadge(){} function updateSyncHoldBadge(){}
   // Sale details (the Sold pop-up) is step 7; until then the Sold choice is left out so no sale is saved half-filled in.
   function soldDetailsPopup(){ showToast('Sale details open in a later step'); }
@@ -1724,6 +1725,448 @@
       return d.toLocaleDateString('en-US',{month:'numeric',day:'numeric',year:'2-digit'});
     }
     const BIRTH_ASSIST_OPTIONS = ['None','Easy Pull','Hard Pull','C-Section'];
+    function editLotModal(){
+      const targetNum = getActiveCowNumber();
+      const cow = D.cows.find(c=>c.number===targetNum);
+      const modal = openModal(`
+        <div class="modal-title">Location — #${escapeHtml(targetNum)}</div>
+        ${fieldWithOther('editLot', 'Location', getLocationOptions(), 'Type location')}
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelEditLot">Cancel</button>
+          <button class="btn btn-barn" id="confirmEditLot">Save</button>
+        </div>
+      `);
+      wireFieldWithOther(modal, 'editLot');
+      if(cow && cow.lot) prefillFieldWithOther(modal, 'editLot', cow.lot, getLocationOptions());
+      modal.querySelector('#cancelEditLot').addEventListener('click', closeModal);
+      modal.querySelector('#confirmEditLot').addEventListener('click', async ()=>{
+        const lot = valueOf(modal, 'editLot');
+        const btn = modal.querySelector('#confirmEditLot');
+        btn.disabled = true;
+        await addLocationIfNew(lot);
+        const body = { lot: lot||null };
+        try{
+          const updated = await api('/cows?number=eq.' + encodeURIComponent(targetNum), {
+            method:'PATCH',
+            headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+            body: JSON.stringify(body)
+          });
+          const idx = D.cows.findIndex(c=>c.number===targetNum);
+          if(idx !== -1) D.cows[idx] = updated[0];
+          saveOfflineCache();
+          closeModal();
+          refreshOpenCowHeaders();
+          renderList();
+          renderCalvingList();
+          renderNotesList();
+          renderWeightsList();
+          renderBreedingList();
+          renderProfileList();
+          showToast('Location updated');
+        }catch(e){
+          if(e && e.isNetworkFailure){
+            const idx = D.cows.findIndex(c=>c.number===targetNum);
+            if(idx !== -1) D.cows[idx] = Object.assign({}, D.cows[idx], body, { _pendingLotSync: true });
+            queuePendingWrite({
+              localId: makeLocalId('pw'),
+              kind: 'update', table: 'cows', field: 'lot', cowNumber: targetNum,
+              method: 'PATCH', path: '/cows?number=eq.' + encodeURIComponent(targetNum),
+              body
+            });
+            saveOfflineCache();
+            closeModal();
+            refreshOpenCowHeaders();
+            renderList();
+            renderCalvingList();
+            renderNotesList();
+            renderWeightsList();
+            renderBreedingList();
+            renderProfileList();
+            showToast('Saved on this phone — will sync when you have signal');
+          } else {
+            btn.disabled = false;
+            showToast('Could not save — try again');
+          }
+        }
+      });
+    }
+    function editOwnerModal(){
+      const targetNum = getActiveCowNumber();
+      const cow = D.cows.find(c=>c.number===targetNum);
+      const modal = openModal(`
+        <div class="modal-title">Owner — #${escapeHtml(targetNum)}</div>
+        ${fieldWithOther('editOwner', 'Owner', getOwnerOptions(), 'Type owner name')}
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelEditOwner">Cancel</button>
+          <button class="btn btn-barn" id="confirmEditOwner">Save</button>
+        </div>
+      `);
+      wireFieldWithOther(modal, 'editOwner');
+      if(cow && cow.owner) prefillFieldWithOther(modal, 'editOwner', cow.owner, getOwnerOptions());
+      modal.querySelector('#cancelEditOwner').addEventListener('click', closeModal);
+      modal.querySelector('#confirmEditOwner').addEventListener('click', async ()=>{
+        const owner = valueOf(modal, 'editOwner');
+        const btn = modal.querySelector('#confirmEditOwner');
+        btn.disabled = true;
+        await addOwnerIfNew(owner);
+        const body = { owner: owner||null };
+        try{
+          const updated = await api('/cows?number=eq.' + encodeURIComponent(targetNum), {
+            method:'PATCH',
+            headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+            body: JSON.stringify(body)
+          });
+          const idx = D.cows.findIndex(c=>c.number===targetNum);
+          if(idx !== -1) D.cows[idx] = updated[0];
+          saveOfflineCache();
+          closeModal();
+          refreshOpenCowHeaders();
+          renderList();
+          renderCalvingList();
+          renderNotesList();
+          renderWeightsList();
+          renderBreedingList();
+          renderProfileList();
+          showToast('Owner updated');
+        }catch(e){
+          if(e && e.isNetworkFailure){
+            const idx = D.cows.findIndex(c=>c.number===targetNum);
+            if(idx !== -1) D.cows[idx] = Object.assign({}, D.cows[idx], body, { _pendingOwnerSync: true });
+            queuePendingWrite({
+              localId: makeLocalId('pw'),
+              kind: 'update', table: 'cows', field: 'owner', cowNumber: targetNum,
+              method: 'PATCH', path: '/cows?number=eq.' + encodeURIComponent(targetNum),
+              body
+            });
+            saveOfflineCache();
+            closeModal();
+            refreshOpenCowHeaders();
+            renderList();
+            renderCalvingList();
+            renderNotesList();
+            renderWeightsList();
+            renderBreedingList();
+            renderProfileList();
+            showToast('Saved on this phone — will sync when you have signal');
+          } else {
+            btn.disabled = false;
+            showToast('Could not save — try again');
+          }
+        }
+      });
+    }
+    function editGroupModal(){
+      const targetNum = getActiveCowNumber();
+      const cow = D.cows.find(c=>c.number===targetNum);
+      const modal = openModal(`
+        <div class="modal-title">Group — #${escapeHtml(targetNum)}</div>
+        ${fieldWithOther('editGroup', 'Group', getGroupOptions(), 'Type group name')}
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelEditGroup">Cancel</button>
+          <button class="btn btn-barn" id="confirmEditGroup">Save</button>
+        </div>
+      `);
+      wireFieldWithOther(modal, 'editGroup');
+      if(cow && cow.cow_group) prefillFieldWithOther(modal, 'editGroup', cow.cow_group, getGroupOptions());
+      modal.querySelector('#cancelEditGroup').addEventListener('click', closeModal);
+      modal.querySelector('#confirmEditGroup').addEventListener('click', async ()=>{
+        const groupVal = valueOf(modal, 'editGroup');
+        const btn = modal.querySelector('#confirmEditGroup');
+        btn.disabled = true;
+        await addGroupIfNew(groupVal);
+        const body = { cow_group: groupVal||null };
+        try{
+          const updated = await api('/cows?number=eq.' + encodeURIComponent(targetNum), {
+            method:'PATCH',
+            headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+            body: JSON.stringify(body)
+          });
+          const idx = D.cows.findIndex(c=>c.number===targetNum);
+          if(idx !== -1) D.cows[idx] = updated[0];
+          saveOfflineCache();
+          closeModal();
+          refreshOpenCowHeaders();
+          renderProfileList();
+          showToast('Group updated');
+        }catch(e){
+          if(e && e.isNetworkFailure){
+            const idx = D.cows.findIndex(c=>c.number===targetNum);
+            if(idx !== -1) D.cows[idx] = Object.assign({}, D.cows[idx], body, { _pendingGroupSync: true });
+            queuePendingWrite({
+              localId: makeLocalId('pw'),
+              kind: 'update', table: 'cows', field: 'cow_group', cowNumber: targetNum,
+              method: 'PATCH', path: '/cows?number=eq.' + encodeURIComponent(targetNum),
+              body
+            });
+            saveOfflineCache();
+            closeModal();
+            refreshOpenCowHeaders();
+            renderProfileList();
+            showToast('Saved on this phone — will sync when you have signal');
+          } else {
+            btn.disabled = false;
+            showToast('Could not save — try again');
+          }
+        }
+      });
+    }
+    function editStatusModal(){
+      const targetNum = getActiveCowNumber();
+      const cow = D.cows.find(c=>c.number===targetNum);
+      const currentStatus = (cow && cow.status) || 'Active';
+      const modal = openModal(`
+        <div class="modal-title">Status — #${escapeHtml(targetNum)}</div>
+        <div class="field">
+          <label>Status</label>
+          <select id="editStatusSelect">
+            ${STATUS_OPTIONS.filter(s=>s!=='Sold' || currentStatus==='Sold').map(s=>`<option value="${s}" ${s===currentStatus?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelEditStatus">Cancel</button>
+          <button class="btn btn-barn" id="confirmEditStatus">Save</button>
+        </div>
+      `);
+      modal.querySelector('#cancelEditStatus').addEventListener('click', closeModal);
+      modal.querySelector('#confirmEditStatus').addEventListener('click', async ()=>{
+        const status = modal.querySelector('#editStatusSelect').value;
+        const btn = modal.querySelector('#confirmEditStatus');
+        btn.disabled = true;
+        const body = { status: status };
+        try{
+          const updated = await api('/cows?number=eq.' + encodeURIComponent(targetNum), {
+            method:'PATCH',
+            headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+            body: JSON.stringify(body)
+          });
+          const idx = D.cows.findIndex(c=>c.number===targetNum);
+          if(idx !== -1) D.cows[idx] = updated[0];
+          saveOfflineCache();
+          closeModal();
+          refreshOpenCowHeaders();
+          renderList();
+          renderCalvingList();
+          renderNotesList();
+          renderWeightsList();
+          renderBreedingList();
+          renderProfileList();
+          const homeTotalEl = document.getElementById('homeTotalCattle');
+          if(homeTotalEl) homeTotalEl.textContent = D.cows.filter(isActiveStatus).length;
+          showToast('Status updated');
+          if(status === 'Sold') soldDetailsPopup('cow', targetNum);
+        }catch(e){
+          if(e && e.isNetworkFailure){
+            const idx = D.cows.findIndex(c=>c.number===targetNum);
+            if(idx !== -1) D.cows[idx] = Object.assign({}, D.cows[idx], body, { _pendingStatusSync: true });
+            queuePendingWrite({
+              localId: makeLocalId('pw'),
+              kind: 'update', table: 'cows', field: 'status', cowNumber: targetNum,
+              method: 'PATCH', path: '/cows?number=eq.' + encodeURIComponent(targetNum),
+              body
+            });
+            saveOfflineCache();
+            closeModal();
+            refreshOpenCowHeaders();
+            renderList();
+            renderCalvingList();
+            renderNotesList();
+            renderWeightsList();
+            renderBreedingList();
+            renderProfileList();
+            const homeTotalEl = document.getElementById('homeTotalCattle');
+            if(homeTotalEl) homeTotalEl.textContent = D.cows.filter(isActiveStatus).length;
+            showToast('Saved on this phone — will sync when you have signal');
+          } else {
+            btn.disabled = false;
+            showToast('Could not save — try again');
+          }
+        }
+      });
+    }
+    function editRegModal(){
+      const targetNum = getActiveCowNumber();
+      const cow = D.cows.find(c=>c.number===targetNum);
+      const current = (cow && cow.reg_number) || '';
+      const modal = openModal(`
+        <div class="modal-title">Registration # — #${escapeHtml(targetNum)}</div>
+        <div class="field">
+          <label>Registration number</label>
+          <input type="text" id="editRegInput" placeholder="Type the number here" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${escapeHtml(current)}"/>
+        </div>
+        <div id="editRegMsg" style="font-family:Arial,sans-serif;font-size:13px;color:#6F2E24;min-height:18px;margin-bottom:8px;"></div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelEditReg">Cancel</button>
+          ${current ? '<button class="btn btn-outline" id="clearEditReg">Remove</button>' : ''}
+          <button class="btn btn-barn" id="confirmEditReg">Save</button>
+        </div>
+      `);
+      const input = modal.querySelector('#editRegInput'), msg = modal.querySelector('#editRegMsg');
+      async function commit(val){
+        const btns = modal.querySelectorAll('button'); btns.forEach(b=> b.disabled = true);
+        const ok = await saveRegNumber(targetNum, val);
+        if(ok){ closeModal(); refreshOpenCowHeaders(); renderProfileList(); showToast(val ? 'Registration number saved' : 'Registration number removed'); }
+        else { btns.forEach(b=> b.disabled = false); showToast('Could not save — try again'); }
+      }
+      modal.querySelector('#cancelEditReg').addEventListener('click', closeModal);
+      const clr = modal.querySelector('#clearEditReg'); if(clr) clr.addEventListener('click', ()=> commit(null));
+      modal.querySelector('#confirmEditReg').addEventListener('click', ()=>{
+        const v = input.value.replace(/\s+/g, '');
+        if(!v){ commit(null); return; }
+        if(!/^[A-Za-z0-9-]{3,20}$/.test(v)){ msg.textContent = 'That does not look like a registration number.'; return; }
+        commit(v);
+      });
+    }
+    function editHerdSeasonModal(){
+      const targetNum = getActiveCowNumber();
+      const cow = D.cows.find(c=>c.number===targetNum);
+      const currentSeason = (cow && cow.herd_season) || '';
+      const modal = openModal(`
+        <div class="modal-title">Herd Season — #${escapeHtml(targetNum)}</div>
+        <div class="field">
+          <label>Herd Season</label>
+          <select id="editHerdSeasonSelect">
+            <option value="" ${currentSeason==='' ? 'selected' : ''}>Not Set</option>
+            ${HERD_SEASON_OPTIONS.map(s=>`<option value="${s}" ${s===currentSeason?'selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" id="cancelEditHerdSeason">Cancel</button>
+          <button class="btn btn-barn" id="confirmEditHerdSeason">Save</button>
+        </div>
+      `);
+      modal.querySelector('#cancelEditHerdSeason').addEventListener('click', closeModal);
+      modal.querySelector('#confirmEditHerdSeason').addEventListener('click', async ()=>{
+        const season = modal.querySelector('#editHerdSeasonSelect').value;
+        const btn = modal.querySelector('#confirmEditHerdSeason');
+        btn.disabled = true;
+        try{
+          await toggleHerdSeason(targetNum, season||null);
+          closeModal();
+          refreshOpenCowHeaders();
+          renderProfileList();
+          showToast('Herd season updated');
+        }catch(e){
+          btn.disabled = false;
+          showToast('Could not save — try again');
+        }
+      });
+    }
+    async function saveRegNumber(num, reg){
+      const body = { reg_number: reg };
+      try{
+        const updated = await api('/cows?number=eq.' + encodeURIComponent(num), {
+          method:'PATCH',
+          headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+          body: JSON.stringify(body)
+        });
+        const idx = D.cows.findIndex(c=>c.number===num);
+        if(idx !== -1 && updated && updated[0]) D.cows[idx] = updated[0];
+        saveOfflineCache();
+        return true;
+      }catch(e){
+        if(e && e.isNetworkFailure){
+          const idx = D.cows.findIndex(c=>c.number===num);
+          if(idx !== -1) D.cows[idx] = Object.assign({}, D.cows[idx], body, { _pendingRegSync: true });
+          queuePendingWrite({
+            localId: makeLocalId('pw'),
+            kind: 'update', table: 'cows', field: 'reg_number', cowNumber: num,
+            method: 'PATCH', path: '/cows?number=eq.' + encodeURIComponent(num),
+            body
+          });
+          saveOfflineCache();
+          showToast('Saved on this phone — will sync when you have signal');
+          return true;
+        }
+        return false;
+      }
+    }
+    async function toggleHerdSeason(num, season){
+      const body = { herd_season: season };
+      try{
+        const updated = await api('/cows?number=eq.' + encodeURIComponent(num), {
+          method:'PATCH',
+          headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+          body: JSON.stringify(body)
+        });
+        const idx = D.cows.findIndex(c=>c.number===num);
+        if(idx !== -1) D.cows[idx] = updated[0];
+        saveOfflineCache();
+      }catch(e){
+        if(e && e.isNetworkFailure){
+          const idx = D.cows.findIndex(c=>c.number===num);
+          if(idx !== -1) D.cows[idx] = Object.assign({}, D.cows[idx], body, { _pendingSeasonSync: true });
+          queuePendingWrite({
+            localId: makeLocalId('pw'),
+            kind: 'update', table: 'cows', field: 'herd_season', cowNumber: num,
+            method: 'PATCH', path: '/cows?number=eq.' + encodeURIComponent(num),
+            body
+          });
+          saveOfflineCache();
+          showToast('Saved on this phone — will sync when you have signal');
+        } else {
+          showToast('Could not save — try again');
+        }
+      }
+    }
+    async function addLocationIfNew(name){
+      if(!name) return;
+      if(D.locations.some(l=>l.name===name)) return;
+      try{
+        const inserted = await api('/locations', {
+          method:'POST',
+          headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+          body: JSON.stringify({ name })
+        });
+        D.locations.push(inserted[0]);
+        D.locations.sort((a,b)=>a.name.localeCompare(b.name));
+      }catch(e){
+        console.error('Could not save new location', e);
+      }
+    }
+    async function addOwnerIfNew(name){
+      if(!name) return;
+      if(D.owners.some(o=>o.name===name)) return;
+      try{
+        const inserted = await api('/owners', {
+          method:'POST',
+          headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+          body: JSON.stringify({ name })
+        });
+        D.owners.push(inserted[0]);
+        D.owners.sort((a,b)=>a.name.localeCompare(b.name));
+      }catch(e){
+        console.error('Could not save new owner', e);
+      }
+    }
+    async function addGroupIfNew(name){
+      if(!name) return;
+      if(D.cow_groups.some(g=>g.name===name)) return;
+      try{
+        const inserted = await api('/cow_groups', {
+          method:'POST',
+          headers: Object.assign({}, HEADERS, {'Prefer':'return=representation'}),
+          body: JSON.stringify({ name })
+        });
+        D.cow_groups.push(inserted[0]);
+        D.cow_groups.sort((a,b)=>a.name.localeCompare(b.name));
+      }catch(e){
+        console.error('Could not save new group', e);
+      }
+    }
+    function getLocationOptions(){
+      return D.locations.map(l=>l.name);
+    }
+    function getOwnerOptions(){
+      return D.owners.map(o=>o.name);
+    }
+    function getGroupOptions(){
+      return D.cow_groups.map(g=>g.name);
+    }
+    const STATUS_OPTIONS = ['Active','Sold','Deceased'];
+    const HERD_SEASON_OPTIONS = ['Spring', 'Fall'];
+    function isActiveStatus(cow){
+      return !cow.status || cow.status === 'Active';
+    }
 
   var FORM_CSS = ".modal input, .modal select, .modal textarea{font-family:Arial,sans-serif;\n    background:var(--paper-raised);\n    border:2px solid var(--ink);\n    color:var(--ink);\n    padding:10px 12px;\n    font-size:16px;\n    border-radius:10px;\n    width:100%;\n    min-width:0;\n    box-sizing:border-box;}\n.modal input[type=\"checkbox\"], .modal input[type=\"radio\"]{border-radius:3px;}\n.modal input:focus, .modal select:focus, .modal textarea:focus{outline:2px solid var(--pasture);outline-offset:1px;}\n.modal input[type=\"date\"]{padding:10px 6px;}\n.modal .field input[type=\"date\"], .modal .field input[type=\"time\"]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;text-align:left;padding:10px 12px;}\n.modal .field input[type=\"date\"]::-webkit-date-and-time-value, .modal .field input[type=\"time\"]::-webkit-date-and-time-value{text-align:left;margin:0;padding:0;min-height:1.2em;}\n.modal .field input[type=\"date\"], .modal .field input[type=\"time\"], .modal .field input[type=\"text\"], .modal .field input[type=\"number\"], .modal .field input[type=\"password\"], .modal .field input[type=\"tel\"], .modal .field input[type=\"email\"], .modal .field input[type=\"search\"], .modal .field select{min-height:46px;line-height:1.25;box-sizing:border-box;}\n.modal .field{margin-bottom:12px;}\n.modal .field label{display:block;font-family:Arial,sans-serif;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}\n.modal .row2{display:flex;gap:10px;}\n.modal .row2 > div{flex:1;min-width:0;}";
   function addFormStyles(){
@@ -1742,6 +2185,7 @@
   };
   var LISTS = { calving: 'calvings', breeding: 'breeding_records', meds: 'treatments', weights: 'weights', notes: 'general_notes' };
   Lite.records = Lite.records || {};
+  Lite.records.editBanner = function(key, num){ currentBannerCow = num; var open = { lot: editLotModal, owner: editOwnerModal, group: editGroupModal, season: editHerdSeasonModal, status: editStatusModal, reg: editRegModal }[key]; if(open) open(); };
   Lite.records.openCalf = function(id){ var rec = D.calvings.filter(function(c){ return String(c.id) === String(id); })[0]; if(rec) calfRecordModal(rec); };
   Lite.records.kinds = Lite.records.kinds || {};
   Object.keys(KINDS).forEach(function(k){ Lite.records.kinds[k] = KINDS[k]; KINDS[k].list = LISTS[k]; });
