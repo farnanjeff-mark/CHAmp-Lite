@@ -1,36 +1,45 @@
-/* CHAmp-Lite, part 2: the app screens.
- * Step 2 placeholder: proves the core works by loading the cows and showing how many there are.
- * The real home screen replaces this in step 3. */
+/* CHAmp-Lite, part 2: the screen switcher.
+ * Small helpers every screen uses: switch screens, show a short message, escape text.
+ * Each screen lives in its own part (home.js, and later cows.js, records.js, ...) and registers
+ * itself here by name. */
 (function(){
   'use strict';
   var root = document.getElementById('app');
-  var box = 'background:linear-gradient(135deg,#2E88C4,#0C5A8E);color:#fff;border:2px solid #fff;border-radius:14px;padding:16px;margin-bottom:12px;';
+  var toastEl = null, toastTimer = null;
 
-  function render(state){
-    root.innerHTML =
-      '<div style="' + box + '">' +
-        '<div style="font-size:22px;font-weight:700;">CHAmp Lite</div>' +
-        '<div style="font-size:14px;margin-top:4px;">Step 2 check: shell and core</div>' +
-      '</div>' +
-      '<div style="' + box + '">' +
-        '<div style="font-size:30px;">' + state.cows + '</div>' +
-        '<div style="font-size:14px;">cows loaded (' + state.source + ')</div>' +
-      '</div>' +
-      '<div style="' + box + '">' +
-        '<div style="font-size:30px;">' + state.pending + '</div>' +
-        '<div style="font-size:14px;">saves waiting to send</div>' +
-      '</div>';
-  }
+  Lite.screens = {};
+  Lite.register = function(name, fn){ Lite.screens[name] = fn; };
+  Lite.show = function(name, args){
+    var fn = Lite.screens[name];
+    if(!fn){ Lite.toast('That screen is not built yet'); return; }
+    root.innerHTML = '';
+    window.scrollTo(0, 0);
+    fn(root, args || {});
+  };
 
-  async function start(){
-    var state = { cows: 0, source: 'loading', pending: Lite.pendingCount() };
-    render(state);
-    var res = await Lite.load(['cows']);
-    state.cows = (Lite.data.cows || []).length;
-    state.source = res.live.length ? 'live from the database' : (res.saved.length ? 'from this phone\'s saved copy' : 'nothing yet, no signal');
-    state.pending = Lite.pendingCount();
-    render(state);
-    Lite.flush().then(function(){ state.pending = Lite.pendingCount(); render(state); });
-  }
-  start();
+  Lite.escapeHtml = function(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch];
+    });
+  };
+
+  // Same cow-number order as CHAmp: by first character, then ascending (369, 3001, 3102).
+  Lite.cowNumCmp = function(a, b){
+    var x = String(a == null ? '' : a).toUpperCase(), y = String(b == null ? '' : b).toUpperCase();
+    var fx = x.charAt(0), fy = y.charAt(0);
+    if(fx !== fy) return fx < fy ? -1 : 1;
+    return x.localeCompare(y, undefined, { numeric: true });
+  };
+
+  Lite.toast = function(msg){
+    if(!toastEl){
+      toastEl = document.createElement('div');
+      toastEl.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:86%;background:#0C5A8E;color:#fff;border:2px solid #fff;border-radius:12px;padding:10px 16px;font-family:Arial,sans-serif;font-size:14px;text-align:center;z-index:50;display:none;';
+      document.body.appendChild(toastEl);
+    }
+    toastEl.textContent = msg;
+    toastEl.style.display = 'block';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.style.display = 'none'; }, 2600);
+  };
 })();

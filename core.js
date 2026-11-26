@@ -48,7 +48,7 @@
     app_settings:    '/app_settings?select=*'
   };
 
-  var Lite = { data: {}, TABLES: TABLES, version: 1 };
+  var Lite = { data: {}, TABLES: TABLES, version: 2 };
 
   // ---------- small helpers ----------
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -171,6 +171,18 @@
     try{ return JSON.parse(raw); }catch(e){ return null; }
   }
   Lite.cacheSavedAt = function(){ return storeGet(CACHE_TIME_KEY); };
+
+  // Fill Lite.data from the phone's saved copy right away, with no network at all.
+  // This is what lets the home screen open instantly. Returns the names that had a saved copy.
+  Lite.useSaved = function(names){
+    var list = names || Object.keys(TABLES);
+    var got = [];
+    list.forEach(function(name){
+      var cached = cacheRead(name);
+      if(cached){ Lite.data[name] = cached; got.push(name); }
+    });
+    return got;
+  };
 
   // Load the named tables in parallel. Each one that loads is saved on the phone.
   // Each one that fails uses the phone's saved copy instead (if there is one).
