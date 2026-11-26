@@ -1,4 +1,4 @@
-/* CHAmp-Lite, part 3: the home screen.
+/* CHAmp-Lite, part 3: the home screen (version 2: Profile and Go now open the cattle list and the cow cards).
  * Number pad, Profile button, and the 11 status tiles. Counts use CHAmp's own rules.
  * Tiles, Profile, and Add Cow open their screens in later steps; for now they show a short message.
  * Go finds the cow and shows a simple list. The full cow screen comes in step 4. */
@@ -234,11 +234,11 @@
         if(!have.cows){ Lite.toast('Cows are still loading'); return; }
         var found = Lite.searchCows(value);
         if(!found.length){ Lite.toast('No cow found matching "' + value + '"'); return; }
-        Lite.show('cowResults', { cows: found, query: value });
+        Lite.show('cards', { cows: found });
         return;
       }
       if(e.target.closest('#liteAddCow')){ Lite.toast('Add Cow opens in a later step'); return; }
-      if(e.target.closest('#liteProfile')){ Lite.toast('The cattle list opens in the next step'); return; }
+      if(e.target.closest('#liteProfile')){ Lite.show('cattle'); return; }
       var tile = e.target.closest('.lite-tile');
       if(tile){ Lite.toast((TILE_NOTES[tile.getAttribute('data-tile')] || 'That screen') + ' opens in a later step'); }
     });
@@ -256,23 +256,5 @@
 
     var onQueue = function(){ if(alive()) updateStatus(); else document.removeEventListener('lite:queue', onQueue); };
     document.addEventListener('lite:queue', onQueue);
-  });
-
-  // Temporary list for step 3: the cows Go found. Replaced by the real cow screen in step 4.
-  Lite.register('cowResults', function(root, args){
-    var items = args.cows.map(function(c){
-      var status = isActive(c) ? '' : '<span style="background:#A32D2D;color:#fff;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;margin-left:8px;text-transform:uppercase;">' + H(c.status) + '</span>';
-      return '<div class="lite-cow" data-n="' + H(c.number) + '" style="background:#fff;border:2px solid #2E88C4;border-radius:12px;padding:12px 14px;margin-bottom:8px;color:#0C5A8E;font-size:18px;cursor:pointer;">' +
-        '<b>#' + H(c.number) + '</b>' + status +
-        (c.lot ? '<div style="font-size:13px;color:#6b6350;margin-top:2px;">' + H(c.lot) + '</div>' : '') + '</div>';
-    }).join('');
-    root.innerHTML = '<div style="font-family:Arial,sans-serif;">' +
-      '<div id="liteHomeBtn" role="button" style="' + tileBox + 'min-height:52px;font-size:16px;font-weight:700;margin-bottom:14px;">Home</div>' +
-      '<div style="color:#0C5A8E;font-size:14px;margin-bottom:10px;">' + args.cows.length + ' cow' + (args.cows.length === 1 ? '' : 's') + ' matching "' + H(args.query) + '"</div>' +
-      items + '</div>';
-    root.addEventListener('click', function handler(e){
-      if(e.target.closest('#liteHomeBtn')){ root.removeEventListener('click', handler); Lite.show('home'); return; }
-      if(e.target.closest('.lite-cow')){ Lite.toast('The cow screen opens in the next step'); }
-    });
   });
 })();

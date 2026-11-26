@@ -48,7 +48,7 @@
     app_settings:    '/app_settings?select=*'
   };
 
-  var Lite = { data: {}, TABLES: TABLES, version: 2 };
+  var Lite = { data: {}, TABLES: TABLES, version: 3, liveAt: {} };
 
   // ---------- small helpers ----------
   function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -174,6 +174,9 @@
 
   // Fill Lite.data from the phone's saved copy right away, with no network at all.
   // This is what lets the home screen open instantly. Returns the names that had a saved copy.
+  Lite.HEADERS = HEADERS;
+  // Save the in-memory copy of a table back to the phone (after a change made here).
+  Lite.saveCopy = function(name){ if(Lite.data[name]) cacheWrite(name, Lite.data[name]); };
   Lite.useSaved = function(names){
     var list = names || Object.keys(TABLES);
     var got = [];
@@ -197,6 +200,7 @@
         var rows = await Lite.api(path, { method: 'GET' });
         Lite.data[name] = rows || [];
         cacheWrite(name, Lite.data[name]);
+        Lite.liveAt[name] = Date.now();
         out.live.push(name);
       }catch(e){
         var cached = cacheRead(name);
