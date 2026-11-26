@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CHAmp Lite</title>
+<style>
+  html,body{margin:0;padding:0;background:#CBBFAE;font-family:Arial,sans-serif;color:#0C5A8E;}
+  #app{max-width:520px;margin:0 auto;padding:16px 14px 40px;}
+</style>
+</head>
+<body>
+<div id="app">Loading…</div>
+
+<!-- Each part has a version number. Change a part's number when that part changes, and the phone
+     downloads only that part. Everything else comes from the phone's saved copy. -->
+<script src="core.js?v=1"></script>
+<script src="app.js?v=1"></script>
+<script>
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('./sw.js').catch(function(e){ console.error('Service worker failed', e); });
+    });
+  }
+</script>
+</body>
+</html>
