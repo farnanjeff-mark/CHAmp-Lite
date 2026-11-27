@@ -2,15 +2,25 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>CHAmp Lite</title>
 <style>
   html,body{margin:0;padding:0;background:#CBBFAE;font-family:Arial,sans-serif;color:#0C5A8E;}
+  html,body{touch-action:manipulation;}
+  #liteHeader{max-width:520px;margin:0 auto;padding:22px 28px 0;box-sizing:border-box;}
+  body.printing-list #liteHeader{display:none !important;}
   #app{max-width:520px;margin:0 auto;padding:16px 14px 40px;}
 </style>
 </head>
 <body>
+<div id="liteHeader"><div style="background:#fff;border:2px solid #2E88C4;border-radius:10px;padding:10px 18px;box-shadow:0 3px 8px rgba(0,0,0,.18);text-align:center;"><p style="margin:0;white-space:nowrap;font-family:Arial,sans-serif;font-weight:700;letter-spacing:.01em;color:#2B2620;font-size:clamp(17px,5.8vw,26px);">Farnan Cattle Company</p></div></div>
 <div id="app">Loading…</div>
+<script>
+/* no pinch-zoom: the screen stays the size it is */
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+document.addEventListener('touchmove', function(e){ if(e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+</script>
 
 <!-- Each part has a version number. Change a part's number when that part changes, and the phone
      downloads only that part. Everything else comes from the phone's saved copy. -->
